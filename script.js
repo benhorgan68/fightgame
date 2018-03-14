@@ -3,17 +3,19 @@ var sock = io();
 
 sock.on('msg', onMessage);
 sock.on('pl', playerSet);
+sock.on('d', playerDisconnect);
 
 function playerSet(playerNum) {
-	player = playerNum;
-	console.log(playerNum);
-	init();
-	//document.getElementById('player').innerHTML = player;
+	console.log(player);
+	if(!(player + 1)) {
+		player = playerNum;
+		init();
+	}
 }
 
 var SPEED = 3, ROTATE_SPEED = .5, MAX_VEL = 150;
 
-var playerX, playerY, enemyX, enemyY, img1, canv, ctx, hVelocity, hAcceleration, vVelocity, vAcceleration = -0.6;
+var playerX, playerY, img1, canv, ctx, hVelocity, hAcceleration, vVelocity, vAcceleration = -0.6;
 
 var mouseX = 0, mouseY = 0;
 
@@ -21,15 +23,15 @@ var punching = false, jumping = false;
 
 var upK = false, downK = false, rightK = false, leftK = false, spaceK = false, rK = false;
 
-var facing = "right", enemyFacing = "right";
+var facing = "right", facing = "right";
 
 var frameNum = 0, frameTimer = 0, lAction = 11, rAction = 9, jumpCooldown = 0, punchCooldown = 0;
 
-var enemyFrameNum = 0, enemyLAction = 11, enemyRAction = 9;
+var enemies = [" ", " "];
 
 var playerHealth = 3, enemyHealth = 3;
 
-var player2On = false;
+var name;
 
 function init() {
 	console.log("test");
@@ -43,52 +45,43 @@ function init() {
 	img1.style.opacity = "0.5";
 	playerX = canv.width/2;
 	playerY = canv.height/2;
-	enemyX = 200;
-	enemyY = canv.height/2;
+	name = "Player " + (player + 1);
+	document.getElementById('name').value = name;
 	
 	gameLoop();
 }
 
 function onMessage(info) {
-	if(player != info.slice(0, 8)) {
-		console.log('message sent! info: ' + info);
-		player2On = true;
+	//var playerNum = info.slice(0, info.indexOf('~'));
+	if(player != info.playerNum) {
+		//console.log('player: ' + player + '. playerNum: ' + playerNum);
 		parseDataString(info);
 	}
+}
+
+function playerDisconnect(num) {
+	enemies[num] = null;
+}
+
+function setName() {
+	name = document.getElementById('name').value;
 }
 
 function gameLoop() {
 	clear();
 	playerScript();
-	if(player2On) enemyScript();
+	enemyScript();
 	setTimeout(gameLoop, 10);
 	dataString = prepareDataString();
-	sock.emit('msg', player + dataString);
+	sock.emit('msg', dataString);
 }
 
 function prepareDataString() {
-	return playerX + '~' + playerY + '~' + frameNum + '~' + facing + '~' + lAction + '~' + rAction;
+	return {playerNum:player, name:name, X:playerX, Y:playerY, frameNum:frameNum, facing:facing, lAction:lAction, rAction:rAction};
 }
 
 function parseDataString(info) {
-	str = info.slice(8);
-	
-	enemyX = str.slice(0, str.indexOf('~'));
-	str = str.slice(str.indexOf('~') + 1);
-	
-	enemyY = str.slice(0, str.indexOf('~'));
-	str = str.slice(str.indexOf('~') + 1);
-	
-	enemyFrameNum = str.slice(0, str.indexOf('~'));
-	str = str.slice(str.indexOf('~') + 1);
-	
-	enemyFacing = str.slice(0, str.indexOf('~'));
-	str = str.slice(str.indexOf('~') + 1);
-	
-	enemyLAction = str.slice(0, str.indexOf('~'));
-	str = str.slice(str.indexOf('~') + 1);
-	
-	enemyRAction = str.slice(0);
+	enemies[info.playerNum] = info;
 }
 
 function playerScript() {
@@ -108,7 +101,7 @@ function playerScript() {
 		frameTimer = 1;
 		resetSpeed();
 	}
-	ctx.fillText(player, playerX + 25, playerY);
+	ctx.fillText(name, playerX + 25, playerY);
 	if(facing == "right") {
 		ctx.drawImage(img1, 64*frameNum, 64*lAction + 1, 64, 64, playerX, playerY, 128, 128);
 	}
@@ -118,11 +111,16 @@ function playerScript() {
 }
 
 function enemyScript() {
-	if(enemyFacing == "right") {
-		ctx.drawImage(img1, 64*enemyFrameNum, 64*enemyLAction + 1, 64, 64, enemyX, enemyY, 128, 128);
-	}
-	else if(enemyFacing == "left") {
-		ctx.drawImage(img1, 64*enemyFrameNum, 64*enemyRAction + 1, 64, 64, enemyX, enemyY, 128, 128);
+	for(i = 0; i < enemies.length; i++) {
+		if(enemies[i]) {
+			ctx.fillText(enemies[i].name, enemies[i].X + 25, enemies[i].Y);
+			if(enemies[i].facing == "right") {
+				ctx.drawImage(img1, 64*enemies[i].frameNum, 64*enemies[i].lAction + 1, 64, 64, enemies[i].X, enemies[i].Y, 128, 128);
+			}
+			else if(enemies[i].facing == "left") {
+				ctx.drawImage(img1, 64*enemies[i].frameNum, 64*enemies[i].rAction + 1, 64, 64, enemies[i].X, enemies[i].Y, 128, 128);
+			}
+		}
 	}
 }
 
