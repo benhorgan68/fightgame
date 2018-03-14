@@ -11,15 +11,19 @@
 <body id="main">
 
 	<div style="position:absolute;left:50px;top:50px;width:200px;">
-		<p>Name:</p>
-		<nobr><input type="text"  id="name"/>
-		<button onclick="setName()">Submit</button></nobr>
+		<p style="color: red">Name:</p>
+		<nobr><input type="text" id="name"/>
+		<button onclick="setName()">Change</button></nobr>
+		<br /><br />
+		<textarea id="chat" rows="20" cols="30" readonly="true">Welcome!</textarea>
+		<form id="chat-form">
+			<nobr><input id="message"/>
+			<button>Send</button></nobr>
+		</form>
 	</div>
-	
-	<center>
-		<canvas id="canvas1">
-	</center>
-
+	<div style="height:100%;display:flex;align-items:center;justify-content:center;">
+		<canvas id="canvas1" style="background-color:aqua;">
+	</div>
 	<script src="/socket.io/socket.io.js"></script>
 	<script src="script.js"></script>
 	

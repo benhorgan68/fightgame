@@ -20,6 +20,7 @@ http.listen(port, function(){
 });
 
 function onConnection(sock) {
+	sock.on('i', (txt) => io.emit('i', txt));
 	sock.on('msg', (txt) => io.emit('msg', txt));
 	
 	var i = 0;

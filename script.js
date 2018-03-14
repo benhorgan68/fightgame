@@ -1,9 +1,10 @@
 var player;
 var sock = io();
 
-sock.on('msg', onMessage);
+sock.on('i', onInfo);
 sock.on('pl', playerSet);
 sock.on('d', playerDisconnect);
+sock.on('msg', onMessage);
 
 function playerSet(playerNum) {
 	console.log(player);
@@ -13,9 +14,9 @@ function playerSet(playerNum) {
 	}
 }
 
-var SPEED = 3, ROTATE_SPEED = .5, MAX_VEL = 150;
+var SPEED = 3, ROTATE_SPEED = .5, MAX_VEL = 150, PLAYER_WIDTH = 64, PLAYER_HEIGHT = 64;
 
-var playerX, playerY, img1, canv, ctx, hVelocity, hAcceleration, vVelocity, vAcceleration = -0.6;
+var playerX, playerY, img1, canv, ctx, hVelocity, hAcceleration, vVelocity, vAcceleration = -0.6, groundLevel;
 
 var mouseX = 0, mouseY = 0;
 
@@ -35,29 +36,38 @@ var name;
 
 function init() {
 	console.log("test");
-	document.getElementById("canvas1").setAttribute("width", $(window).width());
-	document.getElementById("canvas1").setAttribute("height", $(window).height()-4);
+	//document.getElementById("canvas1").setAttribute("width", $(window).width());
+	//document.getElementById("canvas1").setAttribute("height", $(window).height()-4);
+	document.getElementById("canvas1").setAttribute("width", 1920/2);
+	document.getElementById("canvas1").setAttribute("height", 1080/2);
 	canv = document.getElementById("canvas1");
 	ctx = canv.getContext("2d");
 	ctx.font = "20px Arial";
 	img1 = new Image();
 	img1.src = "player1.png";
-	img1.style.opacity = "0.5";
-	playerX = canv.width/2;
-	playerY = canv.height/2;
+	img1.style.opacity = "1";
+	groundLevel = canv.height;
+	playerX = canv.width / 2;
+	playerY = groundLevel - PLAYER_HEIGHT;
 	name = "Player " + (player + 1);
 	document.getElementById('name').value = name;
 	
 	gameLoop();
 }
 
-function onMessage(info) {
+function onInfo(info) {
 	//var playerNum = info.slice(0, info.indexOf('~'));
 	if(player != info.playerNum) {
 		//console.log('player: ' + player + '. playerNum: ' + playerNum);
 		parseDataString(info);
 	}
 }
+
+document.getElementById('chat-form').addEventListener('submit', function(e) {
+	sock.emit('msg', name + ': ' + document.getElementById('message').value);
+	document.getElementById('message').value = '';
+	e.preventDefault();
+});
 
 function playerDisconnect(num) {
 	enemies[num] = null;
@@ -73,7 +83,7 @@ function gameLoop() {
 	enemyScript();
 	setTimeout(gameLoop, 10);
 	dataString = prepareDataString();
-	sock.emit('msg', dataString);
+	sock.emit('i', dataString);
 }
 
 function prepareDataString() {
@@ -82,6 +92,11 @@ function prepareDataString() {
 
 function parseDataString(info) {
 	enemies[info.playerNum] = info;
+}
+
+function onMessage(txt) {
+	document.getElementById('chat').value += '\n' + txt;
+	document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
 }
 
 function playerScript() {
@@ -101,24 +116,24 @@ function playerScript() {
 		frameTimer = 1;
 		resetSpeed();
 	}
-	ctx.fillText(name, playerX + 25, playerY);
+	ctx.fillText(name, playerX, playerY, PLAYER_WIDTH);
 	if(facing == "right") {
-		ctx.drawImage(img1, 64*frameNum, 64*lAction + 1, 64, 64, playerX, playerY, 128, 128);
+		ctx.drawImage(img1, 64*frameNum, 64*lAction + 1, 64, 64, playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT);
 	}
 	else if(facing == "left") {
-		ctx.drawImage(img1, 64*frameNum, 64*rAction + 1, 64, 64, playerX, playerY, 128, 128);
+		ctx.drawImage(img1, 64*frameNum, 64*rAction + 1, 64, 64, playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT);
 	}
 }
 
 function enemyScript() {
 	for(i = 0; i < enemies.length; i++) {
 		if(enemies[i]) {
-			ctx.fillText(enemies[i].name, enemies[i].X + 25, enemies[i].Y);
+			ctx.fillText(enemies[i].name, enemies[i].X, enemies[i].Y, PLAYER_WIDTH);
 			if(enemies[i].facing == "right") {
-				ctx.drawImage(img1, 64*enemies[i].frameNum, 64*enemies[i].lAction + 1, 64, 64, enemies[i].X, enemies[i].Y, 128, 128);
+				ctx.drawImage(img1, 64*enemies[i].frameNum, 64*enemies[i].lAction + 1, 64, 64, enemies[i].X, enemies[i].Y, PLAYER_WIDTH, PLAYER_HEIGHT);
 			}
 			else if(enemies[i].facing == "left") {
-				ctx.drawImage(img1, 64*enemies[i].frameNum, 64*enemies[i].rAction + 1, 64, 64, enemies[i].X, enemies[i].Y, 128, 128);
+				ctx.drawImage(img1, 64*enemies[i].frameNum, 64*enemies[i].rAction + 1, 64, 64, enemies[i].X, enemies[i].Y, PLAYER_WIDTH, PLAYER_HEIGHT);
 			}
 		}
 	}
@@ -155,8 +170,8 @@ function jump() {
 		vVelocity += vAcceleration;
 		playerY -= vVelocity;
 	}
-	if(playerY > canv.height/2) {
-		playerY = canv.height/2;
+	if(playerY > groundLevel - PLAYER_HEIGHT) {
+		playerY = groundLevel - PLAYER_HEIGHT;
 		jumping = false;
 		jumpCooldown = 15;
 	}
