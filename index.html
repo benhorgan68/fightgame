@@ -8,22 +8,27 @@
 	<link rel="stylesheet" type="text/css" href="styles.css">
 
 </head>
-<body id="main">
+<body id="main" onresize="resize()">
 
-	<div style="position:absolute;left:50px;top:50px;width:200px;">
+	<div style="position:absolute;top:50px;width:20%;height:70%;">
 		<p style="color: red">Name:</p>
-		<nobr><input type="text" id="name"/>
-		<button onclick="setName()">Change</button></nobr>
+		<form id="name-change" autocomplete="off">
+			<nobr><input id="name" onfocus="nameFocused()" autocomplete="off"/>
+			<button>Change</button></nobr>
+		</form>
 		<br /><br />
-		<textarea id="chat" rows="20" cols="30" readonly="true">Welcome!</textarea>
-		<form id="chat-form">
-			<nobr><input id="message"/>
-			<button>Send</button></nobr>
+		<div id="chat">
+			<p><span class="server">Welcome! Press '/' to chat. 'ENTER' to send.</span></p>
+		</div>
+		<form id="chat-form" autocomplete="off">
+			<nobr><input id="message" autocomplete="off" style="visibility: hidden;"/></nobr>
 		</form>
 	</div>
-	<div style="height:100%;display:flex;align-items:center;justify-content:center;">
-		<canvas id="canvas1" style="background-color:aqua;">
+	<div id="font-test"></div>
+	<div id="maindiv" style="height:100%;display:flex;align-items:center;justify-content:flex-end;">
+		<canvas id="canvas1">
 	</div>
+	
 	<script src="/socket.io/socket.io.js"></script>
 	<script src="script.js"></script>
 	
