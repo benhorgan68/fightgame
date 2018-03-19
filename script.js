@@ -17,14 +17,14 @@ function playerSet(playerNum) {
 	}
 }
 
-var PLAYER_WIDTH = 64.0*2, PLAYER_HEIGHT = 64.0*2, PUNCH_COOLDOWN = 200, JUMP_COOLDOWN = 300, ORB_WIDTH = 32, ORB_HEIGHT = 32, ORB_SPEED = 1.1, PUNCHED_TIME = 400, MAX_H_VELOCITY = 16, STARTING_H_VELOCITY = 5, H_ACCELERATION = 0.5, STARTING_V_VELOCITY = 20, V_ACCELERATION = -PLAYER_HEIGHT/25;
+var PLAYER_WIDTH = 64.0*2, PLAYER_HEIGHT = 64.0*2, PUNCH_COOLDOWN = 200, JUMP_COOLDOWN = 300, ORB_COOLDOWN = 700, ORB_WIDTH = 32, ORB_HEIGHT = 32, ORB_SPEED = 1.1, PUNCHED_TIME = 400, MAX_H_VELOCITY = 16, STARTING_H_VELOCITY = 5, H_ACCELERATION = 0.5, STARTING_V_VELOCITY = 20, V_ACCELERATION = -PLAYER_HEIGHT/25;
 
 var playerX, playerY, playerImg, canv, ctx, hVelocity, hAcceleration, vVelocity, groundLevel,
 mouseX = 0, mouseY = 0,
 action = "STANDING",
 jumping = false,
 facing = "right",
-frameNum = 0, frameTimer = 0, lAction = 9, rAction = 11, jumpCooldown = 0, punchCooldown = 0, punchedTimer = 0,
+frameNum = 0, frameTimer = 0, lAction = 9, rAction = 11, jumpCooldown = 0, punchCooldown = 0, orbCooldown = 0, punchedTimer = 0,
 enemies = [],
 health = 10,
 name, 
@@ -99,10 +99,6 @@ function gameLoop() {
 	enemyScript();
 	dataString = prepareDataString();
 	sock.emit('i', dataString);
-	
-	//var now = Date.now();
-	//while(Date.now() - now < 20){}
-	//setTimeout(gameLoop, 0);
 }
 
 function prepareDataString() {
@@ -130,11 +126,12 @@ function playerScript() {
 			orb = 0;
 		}
 	}
+	if(jumping) jump();
 	if(action == "PUNCHED"){
 		getPunched();
 	}
 	else if(document.activeElement.id != "name" && document.activeElement.id != "message") {
-		if((pressed[KeyEvent.SPACE] || jumping) && jumpCooldown == 0) jump();
+		if((pressed[KeyEvent.SPACE]) && !jumping && jumpCooldown == 0) jump();
 		if(pressed[KeyEvent.S] && !jumping) {
 			action = "CROUCHING";
 			crouch();
@@ -143,8 +140,9 @@ function playerScript() {
 			resetSpeed();
 			punch();
 		}
-		else if(pressed[KeyEvent.RIGHT] && !orb) {
+		else if(pressed[KeyEvent.RIGHT] && !orb && orbCooldown == 0) {
 			orb = {X: playerX + (PLAYER_WIDTH/2), Y: playerY + (PLAYER_HEIGHT/3), facing:facing};
+			orbCooldown = ORB_COOLDOWN;
 		}
 		else if(pressed[KeyEvent.A]) walk("left");
 		else if(pressed[KeyEvent.D]) walk("right");
@@ -211,7 +209,7 @@ function checkAttacks() {
 				if((enemies[i].orb.X > playerX - ORB_WIDTH && enemies[i].orb.X < playerX + PLAYER_WIDTH)
 				&& (enemies[i].orb.Y > playerY - ORB_HEIGHT && enemies[i].orb.Y < playerY + PLAYER_HEIGHT)
 				) {
-					if(action != "PUNCHED") {
+					if(action != "PUNCHED" && action != "CROUCHING") {
 						action = "PUNCHED";
 						health -= 1;
 						punchedCooldown = PUNCHED_TIME;
@@ -293,10 +291,8 @@ function getPunched() {
 function jump() {
 	if(!jumping) vVelocity = (PLAYER_HEIGHT*STARTING_V_VELOCITY) / 40;
 	jumping = true;
-	if(action != "PUNCHING") {
-		vVelocity += (V_ACCELERATION*clock)/20;
-		playerY -= vVelocity;
-	}
+	vVelocity += (V_ACCELERATION*clock)/20;
+	playerY -= vVelocity;
 	if(playerY > groundLevel - PLAYER_HEIGHT) {
 		playerY = groundLevel - PLAYER_HEIGHT;
 		jumping = false;
@@ -323,6 +319,8 @@ function cooldown() {
 	if(jumpCooldown < 0) jumpCooldown = 0;
 	punchCooldown -= clock;
 	if(punchCooldown < 0) punchCooldown = 0;
+	orbCooldown -= clock;
+	if(orbCooldown < 0) orbCooldown = 0;
 }
 
 function resetSpeed() {
