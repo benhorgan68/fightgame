@@ -31,7 +31,9 @@ name,
 skin = 1,
 pressed = [], KeyEvent,
 now = Date.now(), clock = 1,
-orb = 0;
+orb = 0,
+chatting = false,
+diffTab = false;
 
 function init() {
 	canv = document.getElementById("canvas1");
@@ -47,7 +49,7 @@ function init() {
 	orbImg = new Image();
 	orbImg.src = "orb.png";
 	
-	groundLevel = canv.height;
+	groundLevel = canv.height - 145;
 	playerX = canv.width / 2;
 	playerY = groundLevel - PLAYER_HEIGHT;
 	name = "Player " + (player + 1);
@@ -95,14 +97,29 @@ function gameLoop() {
 	//console.log(clock);
 	clear();
 	clock = Date.now() - now;
+	if(diffTab) {
+		orb = 0;
+		action = "WALKING";
+	} else {
 	playerScript();
 	enemyScript();
+	}
 	dataString = prepareDataString();
 	sock.emit('i', dataString);
 }
 
+window.onblur = function() {
+	diffTab = true;
+	console.log('blur');
+}
+
+window.onfocus = function() {
+	diffTab = false;
+	console.log('focus');
+}
+
 function prepareDataString() {
-	return {playerNum:player, name:name, X:playerX, Y:playerY, frameNum:frameNum, facing:facing, lAction:lAction, rAction:rAction, action:action, skin:skin, health:health, orb};
+	return {playerNum:player, name:name, X:playerX, Y:playerY, frameNum, facing, lAction, rAction, action, skin, health, orb, diffTab};
 }
 
 function parseDataString(info) {
@@ -116,6 +133,9 @@ function onMessage(txt) {
 
 function playerScript() {
 	cooldown();
+	if(diffTab) {
+		orb = 0;
+	}
 	checkAttacks(); //check if player is being attacked
 	if(orb) {
 		if(orb.facing == "left")
@@ -171,6 +191,8 @@ function playerScript() {
 	ctx.fillStyle = "red";
 	writeCenteredText(name, playerX + PLAYER_WIDTH/2, playerY - 30); //write name
 	writeCenteredText('HP ' + health + '/10', playerX + PLAYER_WIDTH/2, playerY); //write health
+	if(diffTab)
+		writeCenteredText('PAUSED', playerX + PLAYER_WIDTH/2, playerY - 60);
 	ctx.fillStyle = "black";
 	
 	if(orb) {
@@ -188,6 +210,8 @@ function enemyScript() {
 		if(enemies[i]) {
 			writeCenteredText(enemies[i].name, enemies[i].X + PLAYER_WIDTH/2, enemies[i].Y - 30); //write name
 			writeCenteredText('HP ' + enemies[i].health + '/10', enemies[i].X + PLAYER_WIDTH/2, enemies[i].Y); //write health
+			if(enemies[i].diffTab)
+				writeCenteredText('PAUSED', enemies[i].X + PLAYER_WIDTH/2, enemies[i].Y - 60);
 			
 			if(enemies[i].orb) {
 				ctx.drawImage(orbImg, enemies[i].orb.X, enemies[i].orb.Y, ORB_WIDTH, ORB_HEIGHT);
@@ -341,7 +365,8 @@ document.onkeyup = function(e) {
 	
 	var message = document.getElementById('message');
 	if(e.keyCode == KeyEvent.SLASH) {
-		message.focus();
+		message.focus();	
+		chatting = true;
 	}
 };
 function keyPress(e, TorF) {
