@@ -131,7 +131,7 @@ function playerScript() {
 		getPunched();
 	}
 	else if(document.activeElement.id != "name" && document.activeElement.id != "message") {
-		if((pressed[KeyEvent.SPACE]) && !jumping && jumpCooldown == 0) jump();
+		if((pressed[KeyEvent.W]) && !jumping && jumpCooldown == 0) jump();
 		if(pressed[KeyEvent.S] && !jumping) {
 			action = "CROUCHING";
 			crouch();
