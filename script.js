@@ -13,12 +13,13 @@ function playerSet(playerNum) {
 	}
 	else {
 		document.getElementById('chat').innerHTML += '<p><span class="server">Player ' + (playerNum + 1) + ' has connected</span></p>';
+		document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
 	}
 }
 
-var SPEED = 3, ROTATE_SPEED = .5, MAX_VEL = 150, PLAYER_WIDTH = 64.0*2, PLAYER_HEIGHT = 64.0*2, PUNCHED_TIME = 40;
+var PLAYER_WIDTH = 64.0*2, PLAYER_HEIGHT = 64.0*2, PUNCH_COOLDOWN = 200, JUMP_COOLDOWN = 300, ORB_WIDTH = 32, ORB_HEIGHT = 32, ORB_SPEED = 1.1, PUNCHED_TIME = 400, MAX_H_VELOCITY = 16, STARTING_H_VELOCITY = 5, H_ACCELERATION = 0.5, STARTING_V_VELOCITY = 20, V_ACCELERATION = -PLAYER_HEIGHT/25;
 
-var playerX, playerY, playerImg, canv, ctx, hVelocity, hAcceleration, vVelocity, vAcceleration = -PLAYER_HEIGHT/100, groundLevel,
+var playerX, playerY, playerImg, canv, ctx, hVelocity, hAcceleration, vVelocity, groundLevel,
 mouseX = 0, mouseY = 0,
 action = "STANDING",
 jumping = false,
@@ -28,7 +29,9 @@ enemies = [],
 health = 10,
 name, 
 skin = 1,
-pressed = [], KeyEvent;
+pressed = [], KeyEvent,
+now = Date.now(), clock = 1,
+orb = 0;
 
 function init() {
 	canv = document.getElementById("canvas1");
@@ -38,8 +41,12 @@ function init() {
 	ctx = canv.getContext("2d");
 	ctx.font = "20px Arial";
 	ctx.fillStyle = "black";
+	
 	playerImg = new Image();
 	playerImg.src = "player1.png";
+	orbImg = new Image();
+	orbImg.src = "orb.png";
+	
 	groundLevel = canv.height;
 	playerX = canv.width / 2;
 	playerY = groundLevel - PLAYER_HEIGHT;
@@ -47,6 +54,7 @@ function init() {
 	document.getElementById('name').value = name;
 	document.getElementById('chat').style = 'width:100%; height:80%; font-size: ' + (canv.offsetWidth / 100) + 'px;';
 	initializeKeys();
+	resetSpeed();
 	
 	gameLoop();
 }
@@ -75,6 +83,7 @@ document.getElementById('name-change').addEventListener('submit', function(e) {
 function playerDisconnect(num) {
 	document.getElementById('chat').innerHTML += '<p><span class="server">' + enemies[num].name + ' has disconnected</span></p>';
 	enemies[num] = null;
+	document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
 }
 
 function setName() {
@@ -82,16 +91,22 @@ function setName() {
 }
 
 function gameLoop() {
+	window.requestAnimationFrame(gameLoop);
+	//console.log(clock);
 	clear();
+	clock = Date.now() - now;
 	playerScript();
 	enemyScript();
-	setTimeout(gameLoop, 10);
 	dataString = prepareDataString();
 	sock.emit('i', dataString);
+	
+	//var now = Date.now();
+	//while(Date.now() - now < 20){}
+	//setTimeout(gameLoop, 0);
 }
 
 function prepareDataString() {
-	return {playerNum:player, name:name, X:playerX, Y:playerY, frameNum:frameNum, facing:facing, lAction:lAction, rAction:rAction, action:action, skin:skin, health:health};
+	return {playerNum:player, name:name, X:playerX, Y:playerY, frameNum:frameNum, facing:facing, lAction:lAction, rAction:rAction, action:action, skin:skin, health:health, orb};
 }
 
 function parseDataString(info) {
@@ -106,29 +121,40 @@ function onMessage(txt) {
 function playerScript() {
 	cooldown();
 	checkAttacks(); //check if player is being attacked
-	if(document.activeElement.id != "name" && document.activeElement.id != "message") {
-		if(action == "PUNCHED"){
-			getPunched();
-		} else {
-			if((pressed[KeyEvent.UP] || jumping) && jumpCooldown == 0) jump();
-			if(pressed[KeyEvent.DOWN] && !jumping) {
-				action = "CROUCHING";
-				crouch();
-			}
-			else if((pressed[KeyEvent.SPACE] || action == "PUNCHING") && punchCooldown == 0) {
-				resetSpeed();
-				punch();
-			}
-			else if(pressed[KeyEvent.LEFT]) walk("left");
-			else if(pressed[KeyEvent.RIGHT]) walk("right");
-			else {
-				frameNum = 0;
-				frameTimer = 1;
-				lAction = 9;
-				rAction = 11;
-				action = "STANDING";
-				resetSpeed();
-			}
+	if(orb) {
+		if(orb.facing == "left")
+			orb.X -= clock*ORB_SPEED;
+		else
+			orb.X += clock*ORB_SPEED;
+		if(orb.X > canv.width || orb.X < 0) {
+			orb = 0;
+		}
+	}
+	if(action == "PUNCHED"){
+		getPunched();
+	}
+	else if(document.activeElement.id != "name" && document.activeElement.id != "message") {
+		if((pressed[KeyEvent.SPACE] || jumping) && jumpCooldown == 0) jump();
+		if(pressed[KeyEvent.S] && !jumping) {
+			action = "CROUCHING";
+			crouch();
+		}
+		else if((pressed[KeyEvent.LEFT] || action == "PUNCHING") && punchCooldown == 0) {
+			resetSpeed();
+			punch();
+		}
+		else if(pressed[KeyEvent.RIGHT] && !orb) {
+			orb = {X: playerX + (PLAYER_WIDTH/2), Y: playerY + (PLAYER_HEIGHT/3), facing:facing};
+		}
+		else if(pressed[KeyEvent.A]) walk("left");
+		else if(pressed[KeyEvent.D]) walk("right");
+		else {
+			frameNum = 0;
+			frameTimer = 1;
+			lAction = 9;
+			rAction = 11;
+			action = "STANDING";
+			resetSpeed();
 		}
 		if(pressed[KeyEvent.R]) {
 			skin = 2;
@@ -137,11 +163,21 @@ function playerScript() {
 			skin = 1;
 		}
 	}
-	
+	else {
+		frameNum = 0;
+		frameTimer = 1;
+		lAction = 9;
+		rAction = 11;
+	}
+	now = Date.now();
 	ctx.fillStyle = "red";
 	writeCenteredText(name, playerX + PLAYER_WIDTH/2, playerY - 30); //write name
 	writeCenteredText('HP ' + health + '/10', playerX + PLAYER_WIDTH/2, playerY); //write health
 	ctx.fillStyle = "black";
+	
+	if(orb) {
+		ctx.drawImage(orbImg, orb.X, orb.Y, ORB_WIDTH, ORB_HEIGHT);
+	}
 	
 	if(facing == "left") dir = lAction;
 	else dir = rAction;
@@ -155,6 +191,10 @@ function enemyScript() {
 			writeCenteredText(enemies[i].name, enemies[i].X + PLAYER_WIDTH/2, enemies[i].Y - 30); //write name
 			writeCenteredText('HP ' + enemies[i].health + '/10', enemies[i].X + PLAYER_WIDTH/2, enemies[i].Y); //write health
 			
+			if(enemies[i].orb) {
+				ctx.drawImage(orbImg, enemies[i].orb.X, enemies[i].orb.Y, ORB_WIDTH, ORB_HEIGHT);
+			}
+			
 			var im = new Image(); 
 			im.src = 'player' + enemies[i].skin + '.png';
 			if(enemies[i].facing == "left") dir = enemies[i].lAction;
@@ -167,6 +207,17 @@ function enemyScript() {
 function checkAttacks() {
 	for(var i = 0; i < enemies.length; i++) {
 		if(enemies[i]) {
+			if(enemies[i].orb) {
+				if((enemies[i].orb.X > playerX - ORB_WIDTH && enemies[i].orb.X < playerX + PLAYER_WIDTH)
+				&& (enemies[i].orb.Y > playerY - ORB_HEIGHT && enemies[i].orb.Y < playerY + PLAYER_HEIGHT)
+				) {
+					if(action != "PUNCHED") {
+						action = "PUNCHED";
+						health -= 1;
+						punchedCooldown = PUNCHED_TIME;
+					}	
+				}
+			}
 			if(enemies[i].action == "PUNCHING" 
 			&& ((enemies[i].facing == "right" && playerX >= enemies[i].X) || (enemies[i].facing == "left" && playerX <= enemies[i].X))
 			&& (enemies[i].X > playerX - PLAYER_WIDTH && enemies[i].X < playerX + PLAYER_WIDTH)
@@ -198,13 +249,19 @@ function writeCenteredText(txt, x, y) {
 
 function walk(dir) {
 	action = "WALKING";
-	hVelocity += hAcceleration;
-	hAcceleration -= 0.001;
-	if(hAcceleration < 0) hAcceleration = 0;
+	hVelocity += (hAcceleration*clock)/20;// hAcceleration;
+	//hAcceleration -= 0.001;
+	if(hVelocity > MAX_H_VELOCITY) {
+		hAcceleration = 0;
+		hVelocity = MAX_H_VELOCITY;
+	}
 	lAction = 9;
 	rAction = 11;
-	frameTimer = ((frameTimer + 1) % 5);
-	if(frameTimer == 0) frameNum = (frameNum + 1) % 9;
+	frameTimer = (frameTimer + clock);
+	if(frameTimer >= 30) {
+		frameNum = (frameNum + 1) % 9;
+		frameTimer = 0;
+	}
 	if(dir == "left") {
 		playerX -= hVelocity;
 		facing = "left";
@@ -216,21 +273,7 @@ function walk(dir) {
 }
 
 function move(dir) {
-	hVelocity += hAcceleration;
-	hAcceleration -= 0.001;
-	if(hAcceleration < 0) hAcceleration = 0;
-	lAction = 9;
-	rAction = 11;
-	frameTimer = ((frameTimer + 1) % 5);
-	if(frameTimer == 0) frameNum = (frameNum + 1) % 9;
-	if(dir == "left") {
-		playerX -= hVelocity;
-		facing = "left";
-	}
-	else if(dir == "right") {
-		playerX += hVelocity;
-		facing = "right";
-	}
+	//TODO
 }
 
 function crouch() {
@@ -243,21 +286,21 @@ function getPunched() {
 	frameNum = 5;
 	lAction = 1;
 	rAction = 3;
-	punchedCooldown--;
+	punchedCooldown -= clock;
 	if(punchedCooldown <= 0) action = "STANDING";
 }
 
 function jump() {
-	if(!jumping) vVelocity = PLAYER_HEIGHT / 4.0;
+	if(!jumping) vVelocity = (PLAYER_HEIGHT*STARTING_V_VELOCITY) / 40;
 	jumping = true;
 	if(action != "PUNCHING") {
-		vVelocity += vAcceleration;
+		vVelocity += (V_ACCELERATION*clock)/20;
 		playerY -= vVelocity;
 	}
 	if(playerY > groundLevel - PLAYER_HEIGHT) {
 		playerY = groundLevel - PLAYER_HEIGHT;
 		jumping = false;
-		jumpCooldown = 15;
+		jumpCooldown = JUMP_COOLDOWN;
 	}
 }
 
@@ -271,20 +314,20 @@ function punch() {
 	if(frameNum == 8) {
 		frameNum = 0;
 		action = "STANDING";
-		punchCooldown = 20;
+		punchCooldown = PUNCH_COOLDOWN;
 	}
 }
 
 function cooldown() {
-	jumpCooldown--;
+	jumpCooldown -= clock;
 	if(jumpCooldown < 0) jumpCooldown = 0;
-	punchCooldown--;
+	punchCooldown -= clock;
 	if(punchCooldown < 0) punchCooldown = 0;
 }
 
 function resetSpeed() {
-	hVelocity = 1.5;
-	hAcceleration = 0.1;
+	hVelocity = STARTING_H_VELOCITY;
+	hAcceleration = H_ACCELERATION;
 }
 
 document.onkeydown = function(e) {

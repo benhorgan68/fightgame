@@ -13,7 +13,7 @@
 	<div style="position:absolute;top:50px;width:20%;height:70%;">
 		<p style="color: red">Name:</p>
 		<form id="name-change" autocomplete="off">
-			<nobr><input id="name" onfocus="nameFocused()" autocomplete="off"/>
+			<nobr><input id="name" onfocus="nameFocused()" maxlength="15" autocomplete="off"/>
 			<button>Change</button></nobr>
 		</form>
 		<br /><br />
@@ -21,7 +21,7 @@
 			<p><span class="server">Welcome! Press '/' to chat. 'ENTER' to send.</span></p>
 		</div>
 		<form id="chat-form" autocomplete="off">
-			<nobr><input id="message" autocomplete="off" style="visibility: hidden;"/></nobr>
+			<nobr><input id="message" maxlength="150" autocomplete="off" style="width: 100%; visibility: hidden;"/></nobr>
 		</form>
 	</div>
 	<div id="font-test"></div>
