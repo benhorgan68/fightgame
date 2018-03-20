@@ -17,14 +17,14 @@ function playerSet(playerNum) {
 	}
 }
 
-var PLAYER_WIDTH = 64.0*2, PLAYER_HEIGHT = 64.0*2, PUNCH_COOLDOWN = 200, JUMP_COOLDOWN = 300, ORB_COOLDOWN = 700, ORB_WIDTH = 32, ORB_HEIGHT = 32, ORB_SPEED = 1.1, PUNCHED_TIME = 400, MAX_H_VELOCITY = 16, STARTING_H_VELOCITY = 5, H_ACCELERATION = 0.5, STARTING_V_VELOCITY = 20, V_ACCELERATION = -PLAYER_HEIGHT/25;
+var PLAYER_WIDTH = 64.0*2, PLAYER_HEIGHT = 64.0*2, PUNCH_COOLDOWN = 350, JUMP_COOLDOWN = 300, ORB_COOLDOWN = 700, ORB_WIDTH = 32, ORB_HEIGHT = 32, ORB_SPEED = 1.1, PUNCHED_TIME = 300, MAX_H_VELOCITY = 16, STARTING_H_VELOCITY = 5, H_ACCELERATION = 0.5, STARTING_V_VELOCITY = 20, V_ACCELERATION = -PLAYER_HEIGHT/25;
 
 var playerX, playerY, playerImg, canv, ctx, hVelocity, hAcceleration, vVelocity, groundLevel,
 mouseX = 0, mouseY = 0,
 action = "STANDING",
-jumping = false,
-facing = "right",
-frameNum = 0, frameTimer = 0, lAction = 9, rAction = 11, jumpCooldown = 0, punchCooldown = 0, orbCooldown = 0, punchedTimer = 0,
+jumping = false, knocked = false,
+facing = "right", knockBackDir,
+frameNum = 0, frameTimer = 1, lAction = 9, rAction = 11, jumpCooldown = 0, punchCooldown = 0, orbCooldown = 0, punchedTimer = 0, knockBackTimer = 0,
 enemies = [],
 health = 10,
 name, 
@@ -147,6 +147,7 @@ function playerScript() {
 		}
 	}
 	if(jumping) jump();
+	if(knocked) knockback();
 	if(action == "PUNCHED"){
 		getPunched();
 	}
@@ -164,8 +165,20 @@ function playerScript() {
 			orb = {X: playerX + (PLAYER_WIDTH/2), Y: playerY + (PLAYER_HEIGHT/3), facing:facing};
 			orbCooldown = ORB_COOLDOWN;
 		}
-		else if(pressed[KeyEvent.A]) walk("left");
-		else if(pressed[KeyEvent.D]) walk("right");
+		else if(pressed[KeyEvent.A]) {
+			if(action != "WALKING") {
+				hVelocity = STARTING_H_VELOCITY;
+				hAcceleration = H_ACCELERATION;
+			}
+			walk("left");
+		}
+		else if(pressed[KeyEvent.D]) {
+			if(action != "WALKING") {
+				hVelocity = STARTING_H_VELOCITY;
+				hAcceleration = H_ACCELERATION;
+			}
+			walk("right");
+		}
 		else {
 			frameNum = 0;
 			frameTimer = 1;
@@ -189,6 +202,8 @@ function playerScript() {
 	}
 	now = Date.now();
 	ctx.fillStyle = "red";
+	canv.width - PLAYER_WIDTH
+	checkPosition();
 	writeCenteredText(name, playerX + PLAYER_WIDTH/2, playerY - 30); //write name
 	writeCenteredText('HP ' + health + '/10', playerX + PLAYER_WIDTH/2, playerY); //write health
 	if(diffTab)
@@ -201,6 +216,7 @@ function playerScript() {
 	
 	if(facing == "left") dir = lAction;
 	else dir = rAction;
+	checkPosition();
 	ctx.drawImage(playerImg, 64*frameNum, 64*dir + 1, 64, 64, playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT);
 	playerImg.src = 'player' + skin + '.png';
 }
@@ -237,6 +253,9 @@ function checkAttacks() {
 						action = "PUNCHED";
 						health -= 1;
 						punchedCooldown = PUNCHED_TIME;
+						knocked = true;
+						knockBackTimer = 500;
+						knockBackDir = enemies[i].orb.facing;
 					}	
 				}
 			}
@@ -249,6 +268,9 @@ function checkAttacks() {
 					action = "PUNCHED";
 					health -= 1;
 					punchedCooldown = PUNCHED_TIME;
+					knocked = true;
+					knockBackTimer = 500;
+					knockBackDir = enemies[i].facing;
 				}
 			}
 		}
@@ -258,6 +280,11 @@ function checkAttacks() {
 		playerY = groundLevel - PLAYER_HEIGHT;
 		health = 10;
 	}
+}
+
+function checkPosition() {
+	if(playerX < 0) playerX = 0;
+	if(playerX > canv.width - PLAYER_WIDTH) playerX = canv.width - PLAYER_WIDTH;
 }
 
 function writeCenteredText(txt, x, y) {
@@ -282,7 +309,7 @@ function walk(dir) {
 	frameTimer = (frameTimer + clock);
 	if(frameTimer >= 30) {
 		frameNum = (frameNum + 1) % 9;
-		frameTimer = 0;
+		frameTimer = 1;
 	}
 	if(dir == "left") {
 		playerX -= hVelocity;
@@ -294,8 +321,17 @@ function walk(dir) {
 	}
 }
 
-function move(dir) {
-	//TODO
+function knockback(dir) {
+	if(knockBackDir == "left") {
+		playerX -= clock;
+	} else if(knockBackDir == "right") {
+		playerX += clock;
+	}
+	knockBackTimer -= 100;
+	if(knockBackTimer <= 0) {
+		knocked = false;
+		knockBackTimer = 0;
+	}
 }
 
 function crouch() {
@@ -329,8 +365,11 @@ function punch() {
 	action = "PUNCHING";
 	lAction = 5;
 	rAction = 7;
-	frameTimer = ((frameTimer + 1) % 3);
-	if(frameTimer == 0) frameNum += 1;
+	frameTimer = frameTimer + clock;
+	if(frameTimer >= 15) {
+		frameNum += 1;
+		frameTimer = 1;
+	}
 	if(frameNum == 8) {
 		frameNum = 0;
 		action = "STANDING";
@@ -348,8 +387,8 @@ function cooldown() {
 }
 
 function resetSpeed() {
-	hVelocity = STARTING_H_VELOCITY;
-	hAcceleration = H_ACCELERATION;
+	hVelocity = 0;
+	hAcceleration = 0;
 }
 
 document.onkeydown = function(e) {
