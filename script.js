@@ -395,7 +395,7 @@ document.onkeydown = function(e) {
 	keyPress(e, true);
 	
 	var message = document.getElementById('message');
-	if(e.keyCode == KeyEvent.SLASH) {
+	if(e.keyCode == KeyEvent.RETURN) {
 		message.style.visibility = 'visible';
 	}
 };
@@ -403,7 +403,8 @@ document.onkeyup = function(e) {
 	keyPress(e, false);
 	
 	var message = document.getElementById('message');
-	if(e.keyCode == KeyEvent.SLASH) {
+	if(e.keyCode == KeyEvent.RETURN) {
+		//message.style.visibility = 'visible';
 		message.focus();	
 		chatting = true;
 	}
