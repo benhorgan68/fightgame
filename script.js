@@ -165,14 +165,14 @@ function playerScript() {
 			orb = {X: playerX + (PLAYER_WIDTH/2), Y: playerY + (PLAYER_HEIGHT/3), facing:facing};
 			orbCooldown = ORB_COOLDOWN;
 		}
-		else if(pressed[KeyEvent.A]) {
+		else if(pressed[KeyEvent.A] && !knocked) {
 			if(action != "WALKING") {
 				hVelocity = STARTING_H_VELOCITY;
 				hAcceleration = H_ACCELERATION;
 			}
 			walk("left");
 		}
-		else if(pressed[KeyEvent.D]) {
+		else if(pressed[KeyEvent.D] && !knocked) {
 			if(action != "WALKING") {
 				hVelocity = STARTING_H_VELOCITY;
 				hAcceleration = H_ACCELERATION;
@@ -323,11 +323,11 @@ function walk(dir) {
 
 function knockback(dir) {
 	if(knockBackDir == "left") {
-		playerX -= clock;
+		playerX -= 2*clock;
 	} else if(knockBackDir == "right") {
-		playerX += clock;
+		playerX += 2*clock;
 	}
-	knockBackTimer -= 100;
+	knockBackTimer -= 50
 	if(knockBackTimer <= 0) {
 		knocked = false;
 		knockBackTimer = 0;
