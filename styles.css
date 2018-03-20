@@ -6,7 +6,7 @@ html, body {
 }
 
 canvas {
-	background: url(bg.png) no-repeat;
+	background-color: black;
     background-size: 100%;
 }
 

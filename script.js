@@ -17,7 +17,9 @@ function playerSet(playerNum) {
 	}
 }
 
-var PLAYER_WIDTH = 64.0*2, PLAYER_HEIGHT = 64.0*2, PUNCH_COOLDOWN = 350, JUMP_COOLDOWN = 300, ORB_COOLDOWN = 700, ORB_WIDTH = 32, ORB_HEIGHT = 32, ORB_SPEED = 1.1, PUNCHED_TIME = 300, MAX_H_VELOCITY = 16, STARTING_H_VELOCITY = 5, H_ACCELERATION = 0.5, STARTING_V_VELOCITY = 20, V_ACCELERATION = -PLAYER_HEIGHT/25;
+var DEVMODE = true;
+
+var PLAYER_WIDTH = 64.0*2, PLAYER_HEIGHT = 64.0*2, PUNCH_COOLDOWN = 350, JUMP_COOLDOWN = 300, ORB_COOLDOWN = 700, ORB_WIDTH = 32, ORB_HEIGHT = 32, ORB_SPEED = 1.1, PUNCHED_TIME = 300, MAX_H_VELOCITY = 16, STARTING_H_VELOCITY = 5, H_ACCELERATION = 0.5, STARTING_V_VELOCITY = 15, V_ACCELERATION = -PLAYER_HEIGHT/30;
 
 var playerX, playerY, playerImg, canv, ctx, hVelocity, hAcceleration, vVelocity, groundLevel,
 mouseX = 0, mouseY = 0,
@@ -31,9 +33,10 @@ name,
 skin = 1,
 pressed = [], KeyEvent,
 now = Date.now(), clock = 1,
-orb = 0,
+orb = 0, jumps = 0,
 chatting = false,
-diffTab = false;
+diffTab = false,
+jumpReady = true;
 
 function init() {
 	canv = document.getElementById("canvas1");
@@ -48,6 +51,8 @@ function init() {
 	playerImg.src = "player1.png";
 	orbImg = new Image();
 	orbImg.src = "orb.png";
+	bgImg = new Image();
+	bgImg.src = "tiledbg.png";
 	
 	groundLevel = canv.height - 145;
 	playerX = canv.width / 2;
@@ -101,6 +106,7 @@ function gameLoop() {
 		orb = 0;
 		action = "WALKING";
 	} else {
+	environmentScript();
 	playerScript();
 	enemyScript();
 	}
@@ -109,17 +115,23 @@ function gameLoop() {
 }
 
 window.onblur = function() {
-	diffTab = true;
+	if(!DEVMODE) {
+		diffTab = true;
+	} else {	
 	console.log('blur');
+	}
 }
 
 window.onfocus = function() {
-	diffTab = false;
-	console.log('focus');
+	if(DEVMODE) {
+		diffTab = false;
+		console.log('focus');
+	}
+	
 }
 
 function prepareDataString() {
-	return {playerNum:player, name:name, X:playerX, Y:playerY, frameNum, facing, lAction, rAction, action, skin, health, orb, diffTab};
+	return {playerNum:player, name, X:playerX, Y:playerY, frameNum, facing, lAction, rAction, action, skin, health, orb, diffTab};
 }
 
 function parseDataString(info) {
@@ -145,14 +157,29 @@ function playerScript() {
 		if(orb.X > canv.width || orb.X < 0) {
 			orb = 0;
 		}
+		//check if hitting enemy
+		for(var i = 0; i < enemies.length; i++) {
+			if(enemies[i]) {
+				if((orb.X > enemies[i].X - ORB_WIDTH && orb.X < enemies[i].X + PLAYER_WIDTH)
+				&& (orb.Y > enemies[i].Y - ORB_HEIGHT && orb.Y < enemies[i].Y + PLAYER_HEIGHT)
+				&& enemies[i].action == "PUNCHED"
+				) {
+					orb = 0;
+				}	
+			}
+		}
 	}
-	if(jumping) jump();
+	if(jumping) {
+		if(!pressed[KeyEvent.W])
+			jumpReady = true;
+		jump();
+	}
 	if(knocked) knockback();
 	if(action == "PUNCHED"){
 		getPunched();
 	}
 	else if(document.activeElement.id != "name" && document.activeElement.id != "message") {
-		if((pressed[KeyEvent.W]) && !jumping && jumpCooldown == 0) jump();
+		if((pressed[KeyEvent.W]) && jumpReady && jumps < 2 && jumpCooldown == 0) initiateJump();
 		if(pressed[KeyEvent.S] && !jumping) {
 			action = "CROUCHING";
 			crouch();
@@ -240,6 +267,11 @@ function enemyScript() {
 			ctx.drawImage(im, 64*enemies[i].frameNum, 64*dir + 1, 64, 64, enemies[i].X, enemies[i].Y, PLAYER_WIDTH, PLAYER_HEIGHT);
 		}
 	}
+}
+
+function environmentScript() {
+	ctx.drawImage(bgImg, 0, 0/*, canv.width, canv.height*/);
+	ctx.drawImage(bgImg, bgImg.width, 0);
 }
 
 function checkAttacks() {
@@ -348,14 +380,28 @@ function getPunched() {
 	if(punchedCooldown <= 0) action = "STANDING";
 }
 
-function jump() {
-	if(!jumping) vVelocity = (PLAYER_HEIGHT*STARTING_V_VELOCITY) / 40;
+function initiateJump() {
+	if(jumps == 0) {
+		jumps = 1;
+	} else {
+		jumps = 2;
+	}
+	jumpReady = false;
+	vVelocity = (PLAYER_HEIGHT*STARTING_V_VELOCITY) / 40;
 	jumping = true;
+}
+
+function jump() {
 	vVelocity += (V_ACCELERATION*clock)/20;
 	playerY -= vVelocity;
+	if(!pressed[KeyEvent.W]) {
+		jumpReady = true;
+	}
 	if(playerY > groundLevel - PLAYER_HEIGHT) {
 		playerY = groundLevel - PLAYER_HEIGHT;
 		jumping = false;
+		jumpReady = true;
+		jumps = 0;
 		jumpCooldown = JUMP_COOLDOWN;
 	}
 }
