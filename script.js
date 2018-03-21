@@ -104,7 +104,7 @@ function setName() {
 }
 
 function gameLoop() {
-	console.log(document.activeElement.id);
+	//console.log(document.activeElement.id);
 	window.requestAnimationFrame(gameLoop);
 	//console.log(clock);
 	clear();
@@ -483,6 +483,7 @@ document.onkeyup = function(e) {
 };
 function keyPress(e, TorF) {
 	pressed[e.keyCode] = TorF;
+	console.log(pressed[e.keyCode]);
 };
 
 function resize() {
