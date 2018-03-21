@@ -19,7 +19,7 @@ function playerSet(playerNum) {
 
 var DEVMODE = true;
 
-var PLAYER_WIDTH = 64.0*2, PLAYER_HEIGHT = 64.0*2, PUNCH_COOLDOWN = 350, JUMP_COOLDOWN = 300, ORB_COOLDOWN = 700, ORB_WIDTH = 32, ORB_HEIGHT = 32, ORB_SPEED = 1.1, PUNCHED_TIME = 300, MAX_H_VELOCITY = 16, STARTING_H_VELOCITY = 5, H_ACCELERATION = 0.5, STARTING_V_VELOCITY = 15, V_ACCELERATION = -PLAYER_HEIGHT/30;
+var PLAYER_WIDTH = 64.0*2, PLAYER_HEIGHT = 64.0*2, PUNCH_COOLDOWN = 350, JUMP_COOLDOWN = 30, ORB_COOLDOWN = 1200, ORB_WIDTH = 32, ORB_HEIGHT = 32, ORB_SPEED = 1.1, PUNCHED_TIME = 300, MAX_H_VELOCITY = 16, STARTING_H_VELOCITY = 5, H_ACCELERATION = 0.5, STARTING_V_VELOCITY = 15, V_ACCELERATION = -PLAYER_HEIGHT/30;
 
 var playerX, playerY, playerImg, canv, ctx, hVelocity, hAcceleration, vVelocity, groundLevel,
 mouseX = 0, mouseY = 0,
@@ -36,7 +36,8 @@ now = Date.now(), clock = 1,
 orb = 0, jumps = 0,
 chatting = false,
 diffTab = false,
-jumpReady = true;
+jumpReady = true,
+orbs = [];
 
 function init() {
 	canv = document.getElementById("canvas1");
@@ -103,12 +104,12 @@ function gameLoop() {
 	clear();
 	clock = Date.now() - now;
 	if(diffTab) {
-		orb = 0;
+		orbs = [];
 		action = "WALKING";
 	} else {
-	environmentScript();
-	playerScript();
-	enemyScript();
+		environmentScript();
+		playerScript();
+		enemyScript();
 	}
 	dataString = prepareDataString();
 	sock.emit('i', dataString);
@@ -131,7 +132,7 @@ window.onfocus = function() {
 }
 
 function prepareDataString() {
-	return {playerNum:player, name, X:playerX, Y:playerY, frameNum, facing, lAction, rAction, action, skin, health, orb, diffTab};
+	return {playerNum:player, name, X:playerX, Y:playerY, frameNum, facing, lAction, rAction, action, skin, health, orbs, diffTab};
 }
 
 function parseDataString(info) {
@@ -145,29 +146,29 @@ function onMessage(txt) {
 
 function playerScript() {
 	cooldown();
-	if(diffTab) {
-		orb = 0;
-	}
 	checkAttacks(); //check if player is being attacked
-	if(orb) {
-		if(orb.facing == "left")
-			orb.X -= clock*ORB_SPEED;
-		else
-			orb.X += clock*ORB_SPEED;
-		if(orb.X > canv.width || orb.X < 0) {
-			orb = 0;
-		}
-		//check if hitting enemy
-		for(var i = 0; i < enemies.length; i++) {
-			if(enemies[i]) {
-				if((orb.X > enemies[i].X - ORB_WIDTH && orb.X < enemies[i].X + PLAYER_WIDTH)
-				&& (orb.Y > enemies[i].Y - ORB_HEIGHT && orb.Y < enemies[i].Y + PLAYER_HEIGHT)
-				&& enemies[i].action == "PUNCHED"
-				) {
-					orb = 0;
-				}	
+	for(var i = 0; i < orbs.length; i++) {
+		if(orbs[i]) {
+			if(orbs[i].facing == "left")
+				orbs[i].X -= clock*ORB_SPEED;
+			else
+				orbs[i].X += clock*ORB_SPEED;
+			if(orbs[i].X > canv.width || orbs[i].X < 0) {
+				orbs[i] = 0;
+			}
+			//check if hitting enemy
+			for(var j = 0; j < enemies.length; j++) {
+				if(enemies[j]) {
+					if((orbs[i].X > enemies[j].X - ORB_WIDTH && orbs[i].X < enemies[j].X + PLAYER_WIDTH)
+					&& (orbs[i].Y > enemies[j].Y - ORB_HEIGHT && orbs[i].Y < enemies[j].Y + PLAYER_HEIGHT)
+					&& enemies[j].action == "PUNCHED"
+					) {
+						delete orbs[i];
+					}	
+				}
 			}
 		}
+
 	}
 	if(jumping) {
 		if(!pressed[KeyEvent.W])
@@ -188,8 +189,10 @@ function playerScript() {
 			resetSpeed();
 			punch();
 		}
-		else if(pressed[KeyEvent.RIGHT] && !orb && orbCooldown == 0) {
-			orb = {X: playerX + (PLAYER_WIDTH/2), Y: playerY + (PLAYER_HEIGHT/3), facing:facing};
+		else if(pressed[KeyEvent.RIGHT] && orbCooldown == 0) {
+			var i = 0;
+			while(orbs[i]) i++;
+			orbs[i] = {X: playerX + (PLAYER_WIDTH/2), Y: playerY + (PLAYER_HEIGHT/3), facing:facing};
 			orbCooldown = ORB_COOLDOWN;
 		}
 		else if(pressed[KeyEvent.A] && !knocked) {
@@ -237,28 +240,37 @@ function playerScript() {
 		writeCenteredText('PAUSED', playerX + PLAYER_WIDTH/2, playerY - 60);
 	ctx.fillStyle = "black";
 	
-	if(orb) {
-		ctx.drawImage(orbImg, orb.X, orb.Y, ORB_WIDTH, ORB_HEIGHT);
+	for(var i = 0; i < orbs.length; i++) {
+		if(orbs[i]) {
+			ctx.drawImage(orbImg, orbs[i].X, orbs[i].Y, ORB_WIDTH, ORB_HEIGHT);
+		}
 	}
+	
 	
 	if(facing == "left") dir = lAction;
 	else dir = rAction;
 	checkPosition();
 	ctx.drawImage(playerImg, 64*frameNum, 64*dir + 1, 64, 64, playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT);
 	playerImg.src = 'player' + skin + '.png';
+	
+	if(DEVMODE)
+		ctx.fillText("Clock: " + clock, 50, 50);
 }
 
 function enemyScript() {
-	for(i = 0; i < enemies.length; i++) {
+	for(var i = 0; i < enemies.length; i++) {
 		if(enemies[i]) {
 			writeCenteredText(enemies[i].name, enemies[i].X + PLAYER_WIDTH/2, enemies[i].Y - 30); //write name
 			writeCenteredText('HP ' + enemies[i].health + '/10', enemies[i].X + PLAYER_WIDTH/2, enemies[i].Y); //write health
 			if(enemies[i].diffTab)
 				writeCenteredText('PAUSED', enemies[i].X + PLAYER_WIDTH/2, enemies[i].Y - 60);
 			
-			if(enemies[i].orb) {
-				ctx.drawImage(orbImg, enemies[i].orb.X, enemies[i].orb.Y, ORB_WIDTH, ORB_HEIGHT);
+			for(var j = 0; j < enemies[i].orbs.length; j++) {
+				if(enemies[i].orbs[j]) {
+					ctx.drawImage(orbImg, enemies[i].orbs[j].X, enemies[i].orbs[j].Y, ORB_WIDTH, ORB_HEIGHT);
+				}
 			}
+			
 			
 			var im = new Image(); 
 			im.src = 'player' + enemies[i].skin + '.png';
@@ -277,20 +289,23 @@ function environmentScript() {
 function checkAttacks() {
 	for(var i = 0; i < enemies.length; i++) {
 		if(enemies[i]) {
-			if(enemies[i].orb) {
-				if((enemies[i].orb.X > playerX - ORB_WIDTH && enemies[i].orb.X < playerX + PLAYER_WIDTH)
-				&& (enemies[i].orb.Y > playerY - ORB_HEIGHT && enemies[i].orb.Y < playerY + PLAYER_HEIGHT)
-				) {
-					if(action != "PUNCHED" && action != "CROUCHING") {
-						action = "PUNCHED";
-						health -= 1;
-						punchedCooldown = PUNCHED_TIME;
-						knocked = true;
-						knockBackTimer = 500;
-						knockBackDir = enemies[i].orb.facing;
-					}	
+			for(var j = 0; j < enemies[i].orbs.length; j++) {
+				if(enemies[i].orbs[j]) {
+					if((enemies[i].orbs[j].X > playerX - ORB_WIDTH && enemies[i].orbs[j].X < playerX + PLAYER_WIDTH)
+					&& (enemies[i].orbs[j].Y > playerY - ORB_HEIGHT && enemies[i].orbs[j].Y < playerY + PLAYER_HEIGHT)
+					) {
+						if(action != "PUNCHED" && action != "CROUCHING") {
+							action = "PUNCHED";
+							health -= 1;
+							punchedCooldown = PUNCHED_TIME;
+							knocked = true;
+							knockBackTimer = 500;
+							knockBackDir = enemies[i].orbs[j].facing;
+						}	
+					}
 				}
 			}
+			
 			if(enemies[i].action == "PUNCHING" 
 			&& ((enemies[i].facing == "right" && playerX >= enemies[i].X) || (enemies[i].facing == "left" && playerX <= enemies[i].X))
 			&& (enemies[i].X > playerX - PLAYER_WIDTH && enemies[i].X < playerX + PLAYER_WIDTH)
