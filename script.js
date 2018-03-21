@@ -63,6 +63,7 @@ function init() {
 	document.getElementById('chat').style = 'width:100%; height:80%; font-size: ' + (canv.offsetWidth / 100) + 'px;';
 	initializeKeys();
 	resetSpeed();
+	canvas1.focus();
 	
 	gameLoop();
 }
