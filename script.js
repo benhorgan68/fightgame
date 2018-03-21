@@ -463,15 +463,16 @@ function resetSpeed() {
 	hAcceleration = 0;
 }
 
-document.onkeydown = function(e) {
+document.addEventListener('keydown', function(e) {
 	keyPress(e, true);
 	
 	var message = document.getElementById('message');
 	if(e.keyCode == KeyEvent.RETURN && document.activeElement.id != 'name') {
 		message.style.visibility = 'visible';
 	}
-};
-document.onkeyup = function(e) {
+});
+
+document.addEventListener('keyup', function(e) {
 	keyPress(e, false);
 	
 	var message = document.getElementById('message');
@@ -480,7 +481,8 @@ document.onkeyup = function(e) {
 		message.focus();	
 		chatting = true;
 	}
-};
+});
+
 function keyPress(e, TorF) {
 	pressed[e.keyCode] = TorF;
 	console.log(pressed[e.keyCode]);
