@@ -19,7 +19,7 @@ function playerSet(playerNum) {
 
 var DEVMODE = false;
 
-var PLAYER_WIDTH = 64.0*2, PLAYER_HEIGHT = 64.0*2, PUNCH_COOLDOWN = 350, JUMP_COOLDOWN = 30, ORB_COOLDOWN = 1200, ORB_WIDTH = 32, ORB_HEIGHT = 32, ORB_SPEED = 1.1, PUNCHED_TIME = 300, MAX_H_VELOCITY = 16, STARTING_H_VELOCITY = 5, H_ACCELERATION = 0.5, STARTING_V_VELOCITY = 15, V_ACCELERATION = -PLAYER_HEIGHT/30;
+var PLAYER_WIDTH = 64.0*2, PLAYER_HEIGHT = 64.0*2, PUNCH_COOLDOWN = 350, JUMP_COOLDOWN = 30, ORB_COOLDOWN = 1200, ORB_WIDTH = 32, ORB_HEIGHT = 32, ORB_SPEED = 1.1, PUNCHED_TIME = 300, MAX_H_VELOCITY = 16, STARTING_H_VELOCITY = 5, H_ACCELERATION = 0.5, STARTING_V_VELOCITY = 12.0, V_ACCELERATION = -PLAYER_HEIGHT/55;
 
 var playerX, playerY, playerImg, canv, ctx, hVelocity, hAcceleration, vVelocity, groundLevel,
 mouseX = 0, mouseY = 0,
@@ -105,30 +105,32 @@ function gameLoop() {
 	clock = Date.now() - now;
 	if(diffTab) {
 		orbs = [];
-		action = "WALKING";
-	} else {
-		environmentScript();
-		playerScript();
-		enemyScript();
+		action = "STANDING";
 	}
+	environmentScript();
+	playerScript();
+	enemyScript();
 	dataString = prepareDataString();
 	sock.emit('i', dataString);
 }
 
 window.onblur = function() {
-	if(!DEVMODE) {
+	diffTab = true;
+	if(DEVMODE) {
+		console.log('blur');
+	}
+	/*if(!DEVMODE) {
 		diffTab = true;
 	} else {	
-	console.log('blur');
-	}
+		console.log('blur');
+	}*/
 }
 
 window.onfocus = function() {
+	diffTab = false;
 	if(DEVMODE) {
-		diffTab = false;
 		console.log('focus');
 	}
-	
 }
 
 function prepareDataString() {
@@ -246,7 +248,6 @@ function playerScript() {
 		}
 	}
 	
-	
 	if(facing == "left") dir = lAction;
 	else dir = rAction;
 	checkPosition();
@@ -326,6 +327,10 @@ function checkAttacks() {
 		playerX = canv.width / 2;
 		playerY = groundLevel - PLAYER_HEIGHT;
 		health = 10;
+		action="STANDING";
+		jumping = false;
+		knocked = false;
+		jumpReady = true;
 	}
 }
 
