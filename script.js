@@ -63,7 +63,7 @@ function init() {
 	document.getElementById('chat').style = 'width:100%; height:80%; font-size: ' + (canv.offsetWidth / 100) + 'px;';
 	initializeKeys();
 	resetSpeed();
-	canvas1.focus();
+	focusCanvas();
 	
 	gameLoop();
 }
@@ -72,6 +72,10 @@ function onInfo(info) {
 	if(player != info.playerNum) {
 		parseDataString(info);
 	}
+}
+
+function focusCanvas() {
+	canvas1.focus();
 }
 
 document.getElementById('chat-form').addEventListener('submit', function(e) {
@@ -100,6 +104,7 @@ function setName() {
 }
 
 function gameLoop() {
+	console.log(document.activeElement.id);
 	window.requestAnimationFrame(gameLoop);
 	//console.log(clock);
 	clear();
