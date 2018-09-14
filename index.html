@@ -10,22 +10,38 @@
 </head>
 <body id="main" onresize="resize()">
 
-	<div style="position:absolute;top:50px;width:20%;height:70%;">
-		<p style="color: red">Name:</p>
+	<div id="sidebardiv">
 		<form id="name-change" autocomplete="off">
-			<nobr><input id="name" onfocus="nameFocused()" maxlength="15" autocomplete="off"/>
-			<button>Change</button></nobr>
+			<nobr><input id="name" maxlength="15" autocomplete="off"/>
+			<button id="name-change-button" onclick="document.getElementById('name-change-button').blur();">Change</button></nobr>
 		</form>
-		<br /><br />
+		<br />
 		<div id="chat">
-			<p><span class="server">Welcome! Press 'ENTER' to chat. 'ENTER' to send.</span></p>
+			<p><span class="server">Welcome! Press 'ENTER' to chat. 'ENTER' to send. </span></p>
+			<p><span class="server">Controls:<br />Move: A/D<br />Duck: S<br />Jump: W<br />Melee: Left Arrow<br />Shoot Orb: Right Arrow<br />Switch character: R/T<br />Chat: Enter</span></p>
 		</div>
 		<form id="chat-form" autocomplete="off">
 			<nobr><input id="message" maxlength="150" autocomplete="off" style="width: 100%; visibility: hidden;"/></nobr>
 		</form>
-		<h1>Controls</h1>
-		<p>Move: A/D<br />Duck: S<br />Jump: W<br />Melee: Left Arrow<br />Shoot Orb: Right Arrow<br />Switch character: R/T<br />Chat: Enter</p>
+		<p id="accountName" style="visibility: hidden;">Username</p>
+		<div id="account">
+			<form id="login" autocomplete="off">
+				<input id="loginuser" maxlength="15" autocomplete="off" type="text"/>
+				<input id="loginpass" maxlength="15" autocomplete="off" type="password"/>
+				<button id="loginButton" onclick="document.getElementById('loginButton').blur();">Login</button></nobr>
+			</form>
+			<p id="logerr"><br /></p>
+			<form id="register" autocomplete="off">
+				<input id="registeruser" maxlength="15" autocomplete="off" type="text"/>
+				<input id="registerpass" maxlength="15" autocomplete="off" type="password"/>
+				<button id="registerButton" onclick="document.getElementById('registerButton').blur();">Register</button></nobr>
+			</form>
+			<p id="regerr"> </p>
+		</div>
+		<br />
+		<button id="toggleSidebarButton" onclick="toggleSidebar()" style="visibility: visible">TOGGLE SIDEBAR</button>
 	</div>
+	
 	<div id="font-test"></div>
 	<div id="maindiv" style="height:100%;display:flex;align-items:center;justify-content:flex-end;">
 		<canvas id="canvas1">

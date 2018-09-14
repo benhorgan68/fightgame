@@ -5,6 +5,8 @@ sock.on('i', onInfo);
 sock.on('pl', playerSet);
 sock.on('d', playerDisconnect);
 sock.on('msg', onMessage);
+sock.on('rerr', regError);
+sock.on('lerr', loginError);
 
 function playerSet(playerNum) {
 	if(!(player + 1)) {
@@ -13,37 +15,40 @@ function playerSet(playerNum) {
 	}
 	else {
 		document.getElementById('chat').innerHTML += '<p><span class="server">Player ' + (playerNum + 1) + ' has connected</span></p>';
-		document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
+		document.getElementById('chat').scrollTop = document.getElementById("chat").scrollHeight;
 	}
 }
 
 var DEVMODE = false;
 
-var PLAYER_WIDTH = 64.0*2, PLAYER_HEIGHT = 64.0*2, PUNCH_COOLDOWN = 350, JUMP_COOLDOWN = 30, ORB_COOLDOWN = 1200, ORB_WIDTH = 32, ORB_HEIGHT = 32, ORB_SPEED = 1.1, PUNCHED_TIME = 300, MAX_H_VELOCITY = 16, STARTING_H_VELOCITY = 5, H_ACCELERATION = 0.5, STARTING_V_VELOCITY = 12.0, V_ACCELERATION = -PLAYER_HEIGHT/55;
+var PLAYER_WIDTH = 64.0*2, PLAYER_HEIGHT = 64.0*2, PUNCH_COOLDOWN = 350, JUMP_COOLDOWN = 30, ORB_COOLDOWN = 1200, ORB_WIDTH = 32, ORB_HEIGHT = 32, ORB_SPEED = 1.5, PUNCHED_TIME = 300, MAX_H_VELOCITY = 16, STARTING_H_VELOCITY = 5, H_ACCELERATION = 0.5, STARTING_V_VELOCITY = 0.005, V_ACCELERATION = -PLAYER_HEIGHT/30000;
 
 var playerX, playerY, playerImg, canv, ctx, hVelocity, hAcceleration, vVelocity, groundLevel,
-mouseX = 0, mouseY = 0,
+mouseX = 0, mouseY = 0, camX = 0, camY = 0,
 action = "STANDING",
 jumping = false, knocked = false,
 facing = "right", knockBackDir,
 frameNum = 0, frameTimer = 1, lAction = 9, rAction = 11, jumpCooldown = 0, punchCooldown = 0, orbCooldown = 0, punchedTimer = 0, knockBackTimer = 0,
+jumpTimer = 0,
 enemies = [],
 health = 10,
 name, 
 skin = 1,
+currency = 0,
 pressed = [], KeyEvent,
 now = Date.now(), clock = 1,
 orb = 0, jumps = 0,
 chatting = false,
 diffTab = false,
 jumpReady = true,
-orbs = [];
+orbs = [],
+player1ping = Date.now();
 
 function init() {
 	canv = document.getElementById("canvas1");
 	canv.width = 1920;
-	canv.height = 1080;
-	canv.style.width = '80%';
+	canv.height = 1080;	
+	canv.style.width = '100%';
 	ctx = canv.getContext("2d");
 	ctx.font = "20px Arial";
 	ctx.fillStyle = "black";
@@ -55,12 +60,12 @@ function init() {
 	bgImg = new Image();
 	bgImg.src = "tiledbg.png";
 	
-	groundLevel = canv.height - 145;
-	playerX = canv.width / 2;
-	playerY = groundLevel - PLAYER_HEIGHT;
+	groundLevel = 230;
+	playerX = 0;
+	playerY = groundLevel + PLAYER_HEIGHT;
 	name = "Player " + (player + 1);
 	document.getElementById('name').value = name;
-	document.getElementById('chat').style = 'width:100%; height:80%; font-size: ' + (canv.offsetWidth / 100) + 'px;';
+	document.getElementById('chat').style = 'width:100%; height:60%; font-size: ' + (canv.offsetWidth / 100) + 'px;';
 	initializeKeys();
 	resetSpeed();
 	window.focus();
@@ -71,6 +76,10 @@ function init() {
 function onInfo(info) {
 	if(player != info.playerNum) {
 		parseDataString(info);
+		if(info.playerNum == 1) {
+			console.log(Date.now() - player1ping)
+			player1ping = Date.now();
+		}
 	}
 }
 
@@ -93,10 +102,20 @@ document.getElementById('name-change').addEventListener('submit', function(e) {
 	e.preventDefault();
 });
 
+document.getElementById('register').addEventListener('submit', function(e) {
+	sock.emit('reg', {username: document.getElementById('registeruser').value, password: document.getElementById('registerpass').value, skin: skin});
+	e.preventDefault();
+});
+
+document.getElementById('login').addEventListener('submit', function(e) {
+	sock.emit('log', {username: document.getElementById('loginuser').value, password: document.getElementById('loginpass').value});
+	e.preventDefault();
+});
+
 function playerDisconnect(num) {
 	document.getElementById('chat').innerHTML += '<p><span class="server">' + enemies[num].name + ' has disconnected</span></p>';
 	enemies[num] = null;
-	document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
+	document.getElementById('chat').scrollTop = document.getElementById("chat").scrollHeight;
 }
 
 function setName() {
@@ -104,21 +123,31 @@ function setName() {
 }
 
 function gameLoop() {
-	//console.log(document.activeElement.id);
 	window.focus();
-	window.requestAnimationFrame(gameLoop);
+//	window.requestAnimationFrame(gameLoop);
 	//console.log(clock);
 	clear();
 	clock = Date.now() - now;
+	now = Date.now();
 	if(diffTab) {
 		orbs = [];
 		action = "STANDING";
 	}
+//	ctx.drawImage(bgImg, 0, 0);
 	environmentScript();
 	playerScript();
 	enemyScript();
+	sleep(0);
 	dataString = prepareDataString();
 	sock.emit('i', dataString);
+	window.requestAnimationFrame(gameLoop);
+}
+
+function sleep(miliseconds) {
+   var currentTime = new Date().getTime();
+
+   while (currentTime + miliseconds >= new Date().getTime()) {
+   }
 }
 
 window.onblur = function() {
@@ -153,16 +182,54 @@ function onMessage(txt) {
 	document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
 }
 
+function regError(msg) {
+	if(typeof msg == "string") {
+		document.getElementById('regerr').innerHTML = msg;
+	}
+	else {
+		document.getElementById('regerr').innerHTML = "";
+		document.getElementById('account').style = "visibility: hidden;";
+		document.getElementById('accountName').innerHTML = "Logged in as " + msg.username;
+		document.getElementById('accountName').style = "visibility: visible;";
+	}
+}
+
+function loginError(msg) {
+	if(typeof msg == "string") {
+		document.getElementById('logerr').innerHTML = msg;
+	}
+	else {
+		document.getElementById('logerr').innerHTML = "";
+		document.getElementById('account').style = "visibility: hidden;";
+		document.getElementById('accountName').innerHTML = "Logged in as " + msg.username;
+		document.getElementById('accountName').style = "visibility: visible;";
+		skin = msg.skin;
+	}
+}
+
+function draw3(img, x, y) {
+	ctx.drawImage(img, x - camX, camY - y);
+}
+
+function draw5(img, x, y, w, h) {
+	ctx.drawImage(img, x - camX, camY - y, w, h);
+}
+
+function draw9(img, cx, cy, cw, ch, x, y, w, h) {
+	ctx.drawImage(img, cx, cy, cw, ch, x - camX, camY - y, w, h);
+}
+
 function playerScript() {
 	cooldown();
 	checkAttacks(); //check if player is being attacked
 	for(var i = 0; i < orbs.length; i++) {
 		if(orbs[i]) {
-			if(orbs[i].facing == "left")
+			if(orbs[i].facing == "left") {
 				orbs[i].X -= clock*ORB_SPEED;
+			}
 			else
 				orbs[i].X += clock*ORB_SPEED;
-			if(orbs[i].X > canv.width || orbs[i].X < 0) {
+			if((orbs[i].facing == "left" && orbs[i].X <= orbs[i].orbEnd) || (orbs[i].facing == "right" && orbs[i].X >= orbs[i].orbEnd)) {
 				orbs[i] = 0;
 			}
 			//check if hitting enemy
@@ -172,12 +239,12 @@ function playerScript() {
 					&& (orbs[i].Y > enemies[j].Y - ORB_HEIGHT && orbs[i].Y < enemies[j].Y + PLAYER_HEIGHT)
 					&& enemies[j].action == "PUNCHED"
 					) {
+						console.log("deleted orb");
 						delete orbs[i];
 					}	
 				}
 			}
 		}
-
 	}
 	if(jumping) {
 		if(!pressed[KeyEvent.W])
@@ -201,7 +268,9 @@ function playerScript() {
 		else if(pressed[KeyEvent.RIGHT] && orbCooldown == 0) {
 			var i = 0;
 			while(orbs[i]) i++;
-			orbs[i] = {X: playerX + (PLAYER_WIDTH/2), Y: playerY + (PLAYER_HEIGHT/3), facing:facing};
+			orbs[i] = {X: playerX + (PLAYER_WIDTH/2), Y: playerY - (PLAYER_HEIGHT/3), facing: facing, orbEnd: 0};
+			if(facing == "left") orbs[i].orbEnd = orbs[i].X - 2000;
+			else orbs[i].orbEnd = orbs[i].X + 2000;
 			orbCooldown = ORB_COOLDOWN;
 		}
 		else if(pressed[KeyEvent.A] && !knocked) {
@@ -239,59 +308,62 @@ function playerScript() {
 		lAction = 9;
 		rAction = 11;
 	}
-	now = Date.now();
-	ctx.fillStyle = "red";
-	canv.width - PLAYER_WIDTH
-	checkPosition();
-	writeCenteredText(name, playerX + PLAYER_WIDTH/2, playerY - 30); //write name
-	writeCenteredText('HP ' + health + '/10', playerX + PLAYER_WIDTH/2, playerY); //write health
-	if(diffTab)
-		writeCenteredText('PAUSED', playerX + PLAYER_WIDTH/2, playerY - 60);
 	ctx.fillStyle = "black";
 	
 	for(var i = 0; i < orbs.length; i++) {
 		if(orbs[i]) {
-			ctx.drawImage(orbImg, orbs[i].X, orbs[i].Y, ORB_WIDTH, ORB_HEIGHT);
+			draw5(orbImg, orbs[i].X, orbs[i].Y, ORB_WIDTH, ORB_HEIGHT);
+			console.log(orbs[i].X + " " + orbs[i].Y);
 		}
 	}
 	
 	if(facing == "left") dir = lAction;
 	else dir = rAction;
-	checkPosition();
-	ctx.drawImage(playerImg, 64*frameNum, 64*dir + 1, 64, 64, playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT);
+	//checkPosition();
+	cameraScript();
+	ctx.fillStyle = "red";
+	writeCenteredText(name, playerX + PLAYER_WIDTH/2, playerY); //write name
+	writeCenteredText('HP ' + health + '/10', playerX + PLAYER_WIDTH/2, playerY - 20); //write health
+	if(diffTab)
+		writeCenteredText('PAUSED', playerX + PLAYER_WIDTH/2, playerY + 30);
+	draw9(playerImg, 64*frameNum, 64*dir + 1, 64, 64, playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT);
+	draw9(playerImg, 64*0, 64*0 + 1, 64, 64, 300, groundLevel + PLAYER_HEIGHT, PLAYER_WIDTH, PLAYER_HEIGHT);
 	playerImg.src = 'player' + skin + '.png';
-	
-	if(DEVMODE)
+	ctx.fillStyle = "blue";
+	if(DEVMODE) {
 		ctx.fillText("Clock: " + clock, 50, 50);
+		ctx.fillText("X: " + playerX + "  Y: " + playerY + " Height: " + playerImg.height, 50, 150);
+		//console.log("X: " + playerX + "  Y: " + playerY);
+	}
+		
 }
 
 function enemyScript() {
 	for(var i = 0; i < enemies.length; i++) {
 		if(enemies[i]) {
-			writeCenteredText(enemies[i].name, enemies[i].X + PLAYER_WIDTH/2, enemies[i].Y - 30); //write name
-			writeCenteredText('HP ' + enemies[i].health + '/10', enemies[i].X + PLAYER_WIDTH/2, enemies[i].Y); //write health
+			writeCenteredText(enemies[i].name, enemies[i].X + PLAYER_WIDTH/2, enemies[i].Y); //write name
+			writeCenteredText('HP ' + enemies[i].health + '/10', enemies[i].X + PLAYER_WIDTH/2, enemies[i].Y - 20); //write health
 			if(enemies[i].diffTab)
-				writeCenteredText('PAUSED', enemies[i].X + PLAYER_WIDTH/2, enemies[i].Y - 60);
+				writeCenteredText('PAUSED', enemies[i].X + PLAYER_WIDTH/2, enemies[i].Y + 30);
 			
 			for(var j = 0; j < enemies[i].orbs.length; j++) {
 				if(enemies[i].orbs[j]) {
-					ctx.drawImage(orbImg, enemies[i].orbs[j].X, enemies[i].orbs[j].Y, ORB_WIDTH, ORB_HEIGHT);
+					draw5(orbImg, enemies[i].orbs[j].X, enemies[i].orbs[j].Y, ORB_WIDTH, ORB_HEIGHT);
 				}
 			}
-			
-			
 			var im = new Image(); 
 			im.src = 'player' + enemies[i].skin + '.png';
 			if(enemies[i].facing == "left") dir = enemies[i].lAction;
 			else dir = enemies[i].rAction;
-			ctx.drawImage(im, 64*enemies[i].frameNum, 64*dir + 1, 64, 64, enemies[i].X, enemies[i].Y, PLAYER_WIDTH, PLAYER_HEIGHT);
+			draw9(im, 64*enemies[i].frameNum, 64*dir + 1, 64, 64, enemies[i].X, enemies[i].Y, PLAYER_WIDTH, PLAYER_HEIGHT);
 		}
 	}
 }
 
 function environmentScript() {
-	ctx.drawImage(bgImg, 0, 0/*, canv.width, canv.height*/);
-	ctx.drawImage(bgImg, bgImg.width, 0);
+	draw5(bgImg, Math.floor((playerX + PLAYER_WIDTH / 2) / canv.width) * canv.width, canv.height, canv.width, canv.height);
+	draw5(bgImg, Math.floor((playerX + PLAYER_WIDTH / 2) / canv.width) * canv.width + canv.width, canv.height, canv.width, canv.height);
+	draw5(bgImg, Math.floor((playerX + PLAYER_WIDTH / 2) / canv.width) * canv.width - canv.width, canv.height, canv.width, canv.height);
 }
 
 function checkAttacks() {
@@ -341,6 +413,13 @@ function checkAttacks() {
 	}
 }
 
+function cameraScript() {
+	camX = playerX - ((canv.width - PLAYER_WIDTH) / 2);
+	camY = playerY + ((canv.height - PLAYER_HEIGHT) / 2);
+	if(camY < canv.height) camY = canv.height;
+	if(camY > canv.height) camY = canv.height;
+}
+
 function checkPosition() {
 	if(playerX < 0) playerX = 0;
 	if(playerX > canv.width - PLAYER_WIDTH) playerX = canv.width - PLAYER_WIDTH;
@@ -352,7 +431,7 @@ function writeCenteredText(txt, x, y) {
 	fontTest.style.fontSize = '20px';
 	var fontHeight = fontTest.clientHeight + 1;
 	var fontWidth = fontTest.clientWidth + 1;
-	ctx.fillText(txt, x - fontWidth/2, y);
+	ctx.fillText(txt, (x - fontWidth/2) - camX, camY - y);
 }	
 
 function walk(dir) {
@@ -363,6 +442,7 @@ function walk(dir) {
 		hAcceleration = 0;
 		hVelocity = MAX_H_VELOCITY;
 	}
+	hVelocity = MAX_H_VELOCITY;
 	lAction = 9;
 	rAction = 11;
 	frameTimer = (frameTimer + clock);
@@ -371,11 +451,11 @@ function walk(dir) {
 		frameTimer = 1;
 	}
 	if(dir == "left") {
-		playerX -= hVelocity;
+		playerX -= hVelocity*clock/20;
 		facing = "left";
 	}
 	else if(dir == "right") {
-		playerX += hVelocity;
+		playerX += hVelocity*clock/20;
 		facing = "right";
 	}
 }
@@ -414,18 +494,28 @@ function initiateJump() {
 		jumps = 2;
 	}
 	jumpReady = false;
-	vVelocity = (PLAYER_HEIGHT*STARTING_V_VELOCITY) / 40;
+//	vVelocity = (PLAYER_HEIGHT*STARTING_V_VELOCITY);
+//	vVelocity = 0;
 	jumping = true;
+	jumpTimer = 0;
 }
 
 function jump() {
-	vVelocity += (V_ACCELERATION*clock)/20;
-	playerY -= vVelocity;
+	jumpTimer += clock;
+	
+	/*vVelocity += (V_ACCELERATION*clock);
+	playerY += vVelocity*clock*clock;*/
+	var jumpHeight = 300;
+	var jumpTimeHeight = 400;
+	playerY += clock*(-jumpTimer + clock + jumpTimeHeight) / jumpHeight;
+	//increase the first constant to increase jump time and height,
+	//increase the second to decrease jump height
+	
 	if(!pressed[KeyEvent.W]) {
 		jumpReady = true;
 	}
-	if(playerY > groundLevel - PLAYER_HEIGHT) {
-		playerY = groundLevel - PLAYER_HEIGHT;
+	if(playerY <= groundLevel + PLAYER_HEIGHT) {
+		playerY = groundLevel + PLAYER_HEIGHT;
 		jumping = false;
 		jumpReady = true;
 		jumps = 0;
@@ -468,7 +558,7 @@ document.addEventListener('keydown', function(e) {
 	keyPress(e, true);
 	
 	var message = document.getElementById('message');
-	if(e.keyCode == KeyEvent.RETURN && document.activeElement.id != 'name') {
+	if(e.keyCode == KeyEvent.RETURN && document.activeElement.id == 'main') {
 		message.style.visibility = 'visible';
 	}
 });
@@ -485,13 +575,22 @@ document.addEventListener('keyup', function(e) {
 });
 
 function keyPress(e, TorF) {
-	pressed[e.keyCode] = TorF;
-	console.log(pressed[e.keyCode]);
+	if(document.activeElement.id == 'main')
+		pressed[e.keyCode] = TorF;
 };
 
 function resize() {
-	canv.style.width = '80%';
-	document.getElementById('chat').style = 'font-size: ' + (canv.offsetWidth / 100) + 'px;';
+//	canv.style.width = '100%';
+	var divisor = 100;
+	document.getElementById('chat').style = 'font-size: ' + (canv.offsetWidth / divisor) + 'px;';
+	document.getElementById('name').style = 'font-size: ' + (canv.offsetWidth / divisor) + 'px;';
+	document.getElementById('name-change-button').style = 'font-size: ' + (canv.offsetWidth / divisor) + 'px;';
+	document.getElementById('loginuser').style = 'font-size: ' + (canv.offsetWidth / divisor) + 'px;';
+	document.getElementById('loginpass').style = 'font-size: ' + (canv.offsetWidth / divisor) + 'px;';
+	document.getElementById('registeruser').style = 'font-size: ' + (canv.offsetWidth / divisor) + 'px;';
+	document.getElementById('registerpass').style = 'font-size: ' + (canv.offsetWidth / divisor) + 'px;';
+	document.getElementById('loginButton').style = 'font-size: ' + (canv.offsetWidth / divisor) + 'px;';
+	document.getElementById('registerButton').style = 'font-size: ' + (canv.offsetWidth / divisor) + 'px;';
 }
 
 function clear() {
@@ -501,8 +600,14 @@ function clear() {
 	ctx.restore();
 }
 
-function nameFocused() {
-	document.getElementById('name').select();
+function toggleSidebar() {
+	var sidebar = document.getElementById("sidebardiv");
+	if(sidebar.style.visibility == "hidden")
+		sidebar.style.visibility = "visible";
+	else
+		sidebar.style.visibility = "hidden";
+	window.focus();
+	document.getElementById("toggleSidebarButton").blur();
 }
 
 document.onmousewalk = function(e) {
